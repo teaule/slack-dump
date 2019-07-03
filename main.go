@@ -378,6 +378,9 @@ func fetchChannelHistory(api *slack.Client, ID string) []slack.Message {
 	history, err := api.GetChannelHistory(ID, historyParams)
 	check(err)
 	messages := history.Messages
+	if len(messages) == 0 {
+		return messages
+	}
 	latest := messages[len(messages)-1].Timestamp
 	for {
 		if history.HasMore != true {
