@@ -60,6 +60,10 @@ func main() {
 			Name:  "Yoshihiro Misawa",
 			Email: "myoshi321go@gmail.com",
 		},
+		{
+			Name:  "takameron",
+			Email: "contact@takameron.info",
+		},
 	}
 	app.Version = "1.1.3"
 	app.Action = func(c *cli.Context) error {
