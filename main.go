@@ -17,7 +17,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/nlopes/slack"
+	"github.com/slack-go/slack"
 	"github.com/urfave/cli/v2"
 )
 
