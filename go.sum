@@ -1,0 +1,6 @@
+github.com/gorilla/websocket v1.2.0 h1:VJtLvh6VQym50czpZzx07z/kw9EgAxI3x1ZB8taTMQQ=
+github.com/gorilla/websocket v1.2.0/go.mod h1:E7qHFY5m1UJ88s3WnNqhKjPHQ0heANvMoAMk2YaljkQ=
+github.com/nlopes/slack v0.2.1-0.20180411002824-921a31ba7374 h1:68jpW9xNpAn0OPkBKSwuOXqa50BrP7CABqwuoTuq3FY=
+github.com/nlopes/slack v0.2.1-0.20180411002824-921a31ba7374/go.mod h1:jVI4BBK3lSktibKahxBF74txcK2vyvkza1z/+rRnVAM=
+github.com/urfave/cli v1.20.1-0.20180226030253-8e01ec4cd3e2 h1:xAkHCttGHKXIr10OSiFzNt0XOJyHMdng0ylSynT8sMo=
+github.com/urfave/cli v1.20.1-0.20180226030253-8e01ec4cd3e2/go.mod h1:70zkFmudgCuE/ngEzBv17Jvp/497gISqfk5gWijbERA=
