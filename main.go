@@ -11,7 +11,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -99,12 +98,7 @@ func main() {
 		dir, err := ioutil.TempDir("", "slack-dump")
 		check(err)
 
-		// Dump Users
-		dumpUsers(api, dir)
-
-		// Dump Channels and Groups
-		dumpRooms(api, dir, rooms)
-
+		dump(api, dir, rooms)
 		archive(dir, outputDir)
 
 		return nil
@@ -147,7 +141,8 @@ func archive(inFilePath, outputDir string) {
 
 		archivePath := path.Join(filepath.SplitList(relativeFilePath)...)
 
-		fmt.Println(archivePath)
+		//Display the output file name
+		// fmt.Println(archivePath)
 
 		file, err := os.Open(filePath)
 		if err != nil {
@@ -183,143 +178,89 @@ func MarshalIndent(v interface{}, prefix string, indent string) ([]byte, error) 
 	return b, nil
 }
 
-func dumpUsers(api *slack.Client, dir string) {
-	fmt.Println("dump user information")
+func dump(api *slack.Client, dir string, rooms []string) {
+	channels := fetchChannel(api)
 	users, err := api.GetUsers()
 	check(err)
 
-	data, err := MarshalIndent(users, "", "    ")
-	check(err)
-	err = ioutil.WriteFile(path.Join(dir, "users.json"), data, 0644)
-	check(err)
-
-	fmt.Println("dump direct message")
-	ims, err := api.GetIMChannels()
-	//fmt.Println(ims)
-
-	for _, im := range ims {
-		for _, user := range users {
-			if im.User == user.ID {
-				fmt.Println("dump DM with " + user.Name)
-				dumpChannel(api, dir, im.ID, user.Name, "dm")
-			}
-		}
-	}
-}
-
-func dumpRooms(api *slack.Client, dir string, rooms []string) {
-	// Dump Channels
-	fmt.Println("dump public channel")
-	channels := dumpChannels(api, dir, rooms)
-
-	// Dump Private Groups
-	fmt.Println("dump private channel")
-	groups := dumpGroups(api, dir, rooms)
-
-	if len(groups) > 0 {
-		for _, group := range groups {
-			channel := slack.Channel{}
-			channel.ID = group.ID
-			channel.Name = group.Name
-			channel.Created = group.Created
-			channel.Creator = group.Creator
-			channel.IsArchived = group.IsArchived
-			channel.IsChannel = true
-			channel.IsGeneral = false
-			channel.IsMember = true
-			channel.LastRead = group.LastRead
-			channel.Latest = group.Latest
-			channel.Members = group.Members
-			channel.Purpose = group.Purpose
-			channel.Topic = group.Topic
-			channel.UnreadCount = group.UnreadCount
-			channel.UnreadCountDisplay = group.UnreadCountDisplay
-			channels = append(channels, channel)
-		}
-	}
-
-	data, err := MarshalIndent(channels, "", "    ")
-	check(err)
-	err = ioutil.WriteFile(path.Join(dir, "channels.json"), data, 0644)
-	check(err)
-}
-
-func dumpChannels(api *slack.Client, dir string, rooms []string) []slack.Channel {
-	channels, err := api.GetChannels(false)
-	check(err)
-
-	if len(rooms) > 0 {
-		channels = FilterChannels(channels, func(channel slack.Channel) bool {
-			for _, room := range rooms {
-				if room == channel.Name {
-					return true
+	for _, c := range channels {
+		kind := ""
+		name := ""
+		if c.IsIM {
+			kind = "direct_message"
+			for _, usr := range users {
+				if c.User == usr.ID {
+					name = usr.Name
 				}
 			}
-			return false
-		})
+		} else if c.IsMpIM {
+			kind = "direct_message"
+			name = c.Name
+		} else if c.IsChannel && !c.IsGroup && !c.IsPrivate {
+			kind = "channel"
+			name = c.Name
+		} else if (!c.IsChannel && !c.IsGroup) || (c.IsChannel && c.IsPrivate) {
+			kind = "private_channel"
+			name = c.Name
+		}
+
+		ok := len(rooms) == 0 || (len(rooms) > 0 && hasArrayItem(rooms, name))
+
+		if kind != "" && ok {
+			fmt.Println(name)
+			dumpChannel(api, c.ID, name, kind, dir)
+		}
 	}
 
-	if len(channels) == 0 {
-		var channels []slack.Channel
-		return channels
-	}
+	data_channels, err := MarshalIndent(channels, "", "    ")
+	check(err)
+	err = ioutil.WriteFile(path.Join(dir, "channels.json"), data_channels, 0644)
+	check(err)
 
-	for _, channel := range channels {
-		fmt.Println("dump channel " + channel.Name)
-		dumpChannel(api, dir, channel.ID, channel.Name, "channel")
+	data_users, err := MarshalIndent(users, "", "    ")
+	check(err)
+	err = ioutil.WriteFile(path.Join(dir, "users.json"), data_users, 0644)
+	check(err)
+}
+
+func fetchChannel(api *slack.Client) []slack.Channel {
+	channelParams := slack.GetConversationsParameters{}
+	channelParams.Types = []string{"public_channel", "private_channel", "mpim", "im"}
+	channelParams.Limit = 1000
+
+	// Fetch Channel
+	chs, nextCursor, err := api.GetConversations(&channelParams)
+	check(err)
+	channels := chs
+	if len(channels) > 0 {
+		for {
+			if nextCursor == "" {
+				break
+			}
+
+			channelParams.Cursor = nextCursor
+			chs, nextCursor, err := api.GetConversations(&channelParams)
+			check(err)
+			length := len(chs)
+			if length > 0 {
+				channelParams.Cursor = nextCursor
+				channels = append(channels, chs...)
+			}
+		}
 	}
 
 	return channels
 }
 
-func dumpGroups(api *slack.Client, dir string, rooms []string) []slack.Group {
-	groups, err := api.GetGroups(false)
-	check(err)
-	if len(rooms) > 0 {
-		groups = FilterGroups(groups, func(group slack.Group) bool {
-			for _, room := range rooms {
-				if room == group.Name {
-					return true
-				}
-			}
-			return false
-		})
-	}
-
-	if len(groups) == 0 {
-		var groups []slack.Group
-		return groups
-	}
-
-	for _, group := range groups {
-		fmt.Println("dump channel (group) " + group.Name)
-		dumpChannel(api, dir, group.ID, group.Name, "group")
-	}
-
-	return groups
-}
-
-func dumpChannel(api *slack.Client, dir, id, name, channelType string) {
-	var messages []slack.Message
-	var channelPath string
-	if channelType == "group" {
-		channelPath = path.Join("private_channel", name)
-		messages = fetchGroupHistory(api, id)
-	} else if channelType == "dm" {
-		channelPath = path.Join("direct_message", name)
-		messages = fetchDirectMessageHistory(api, id)
-	} else {
-		channelPath = path.Join("channel", name)
-		messages = fetchChannelHistory(api, id)
-	}
+func dumpChannel(api *slack.Client, id string, name string, kind string, dir string) {
+	messages := fetchHistory(api, id)
 
 	if len(messages) == 0 {
 		return
 	}
 
-	sort.Sort(byTimestamp(messages))
-
 	currentFilename := ""
+	channelPath := path.Join(kind, name)
 	var currentMessages []slack.Message
 	for _, message := range messages {
 		ts := parseTimestamp(message.Timestamp)
@@ -335,106 +276,30 @@ func dumpChannel(api *slack.Client, dir, id, name, channelType string) {
 	writeMessagesFile(currentMessages, dir, channelPath, currentFilename)
 }
 
-func writeMessagesFile(messages []slack.Message, dir string, channelPath string, filename string) {
-	if len(messages) == 0 || dir == "" || channelPath == "" || filename == "" {
-		return
-	}
-	channelDir := path.Join(dir, channelPath)
-	err := os.MkdirAll(channelDir, 0755)
-	check(err)
-
-	data, err := MarshalIndent(messages, "", "    ")
-	check(err)
-	err = ioutil.WriteFile(path.Join(channelDir, filename), data, 0644)
-	check(err)
-}
-
-func fetchGroupHistory(api *slack.Client, ID string) []slack.Message {
-	historyParams := slack.NewHistoryParameters()
-	historyParams.Count = 1000
+func fetchHistory(api *slack.Client, ID string) []slack.Message {
+	historyParams := slack.GetConversationHistoryParameters{}
+	historyParams.ChannelID = ID
+	historyParams.Limit = 1000
 
 	// Fetch History
-	history, err := api.GetGroupHistory(ID, historyParams)
+	history, err := api.GetConversationHistory(&historyParams)
 	check(err)
 	messages := history.Messages
 	if len(messages) > 0 {
-		latest := messages[len(messages)-1].Timestamp
 		for {
-			if history.HasMore != true {
+			if !history.HasMore {
 				break
 			}
 
-			historyParams.Latest = latest
-			history, err = api.GetGroupHistory(ID, historyParams)
+			historyParams.Cursor = history.ResponseMetaData.NextCursor
+			history, err = api.GetConversationHistory(&historyParams)
 			check(err)
 			length := len(history.Messages)
 			if length > 0 {
-				latest = history.Messages[length-1].Timestamp
+				historyParams.Cursor = history.ResponseMetaData.NextCursor
 				messages = append(messages, history.Messages...)
 			}
 		}
-	}
-
-	return messages
-}
-
-func fetchChannelHistory(api *slack.Client, ID string) []slack.Message {
-	historyParams := slack.NewHistoryParameters()
-	historyParams.Count = 1000
-
-	// Fetch History
-	history, err := api.GetChannelHistory(ID, historyParams)
-	check(err)
-	messages := history.Messages
-	if len(messages) == 0 {
-		return messages
-	}
-	latest := messages[len(messages)-1].Timestamp
-	for {
-		if history.HasMore != true {
-			break
-		}
-
-		historyParams.Latest = latest
-		history, err = api.GetChannelHistory(ID, historyParams)
-		check(err)
-		length := len(history.Messages)
-		if length > 0 {
-			latest = history.Messages[length-1].Timestamp
-			messages = append(messages, history.Messages...)
-		}
-
-	}
-
-	return messages
-}
-
-func fetchDirectMessageHistory(api *slack.Client, ID string) []slack.Message {
-	historyParams := slack.NewHistoryParameters()
-	historyParams.Count = 1000
-
-	// Fetch History
-	history, err := api.GetIMHistory(ID, historyParams)
-	check(err)
-	messages := history.Messages
-	if len(messages) == 0 {
-		return messages
-	}
-	latest := messages[len(messages)-1].Timestamp
-	for {
-		if history.HasMore != true {
-			break
-		}
-
-		historyParams.Latest = latest
-		history, err = api.GetIMHistory(ID, historyParams)
-		check(err)
-		length := len(history.Messages)
-		if length > 0 {
-			latest = history.Messages[length-1].Timestamp
-			messages = append(messages, history.Messages...)
-		}
-
 	}
 
 	return messages
@@ -461,38 +326,25 @@ func parseTimestamp(timestamp string) *time.Time {
 	return &tm
 }
 
-// FilterGroups returns a new slice holding only
-// the elements of s that satisfy f()
-func FilterGroups(s []slack.Group, fn func(slack.Group) bool) []slack.Group {
-	var p []slack.Group // == nil
-	for _, v := range s {
-		if fn(v) {
-			p = append(p, v)
-		}
+func writeMessagesFile(messages []slack.Message, dir string, channelPath string, filename string) {
+	if len(messages) == 0 || dir == "" || channelPath == "" || filename == "" {
+		return
 	}
-	return p
+	channelDir := path.Join(dir, channelPath)
+	err := os.MkdirAll(channelDir, 0755)
+	check(err)
+
+	data, err := MarshalIndent(messages, "", "    ")
+	check(err)
+	err = ioutil.WriteFile(path.Join(channelDir, filename), data, 0644)
+	check(err)
 }
 
-// FilterChannels returns a new slice holding only
-// the elements of s that satisfy f()
-func FilterChannels(s []slack.Channel, fn func(slack.Channel) bool) []slack.Channel {
-	var p []slack.Channel // == nil
-	for _, v := range s {
-		if fn(v) {
-			p = append(p, v)
+func hasArrayItem(arr []string, str string) bool {
+	for _, v := range arr {
+		if v == str {
+			return true
 		}
 	}
-	return p
-}
-
-// FilterUsers returns a new slice holding only
-// the elements of s that satisfy f()
-func FilterUsers(s []slack.User, fn func(slack.User) bool) []slack.User {
-	var p []slack.User // == nil
-	for _, v := range s {
-		if fn(v) {
-			p = append(p, v)
-		}
-	}
-	return p
+	return false
 }
