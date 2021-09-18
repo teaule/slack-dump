@@ -61,7 +61,7 @@ func main() {
 		},
 		{
 			Name:  "takameron",
-			Email: "contact@takameron.info",
+			Email: "tech@takameron.info",
 		},
 	}
 	app.Version = "1.2.1"
