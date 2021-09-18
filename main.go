@@ -64,7 +64,7 @@ func main() {
 			Email: "tech@takameron.info",
 		},
 	}
-	app.Version = "1.2.1"
+	app.Version = "1.3.0"
 	app.Action = func(c *cli.Context) error {
 		token := c.String("token")
 		if token == "" {
