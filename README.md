@@ -8,16 +8,17 @@ Generate an export of Channel, Private Group and / or Direct Message history and
 3. Select "From scratch"
 4. Input App Name and pick a workspace
 5. Click "Features" → "OAuth & Permissions" of sidebar
-6. Go to "Scopes" and set as below for Bot tokens and User tokens
+6. Go to "Scopes" and set **User Token** Scopes as follows
 
 * channels:read
-* groups:read
-* im:read
-* mpim:read
 * channels:history
+* groups:read
 * groups:history
+* im:read
 * im:history
+* mpim:read
 * mpim:history
+* users:read
 
 7. Go to "OAuth Tokens for Your Workspace" and click "Install to Workspace"
 8. Accept
