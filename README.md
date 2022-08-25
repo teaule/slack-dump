@@ -36,7 +36,7 @@ USAGE:
    main [global options] command [command options] [arguments...]
 
 VERSION:
-   1.3.0
+   1.4.0
 
 AUTHORS:
    Joe Fitzgerald <jfitzgerald@pivotal.io>

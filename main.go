@@ -198,6 +198,7 @@ func dump(api *slack.Client, dir string, rooms []string, token string) {
 					name = usr.Name
 				}
 			}
+			c.Name = name
 			direct_channels = append(direct_channels, c)
 		} else if c.IsMpIM {
 			kind = "direct_message"
