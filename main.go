@@ -102,7 +102,7 @@ func main() {
 		dir, err := ioutil.TempDir("", "slack-dump")
 		check(err)
 
-		dump(api, dir, rooms, token)
+		dump(api, dir, rooms)
 		archive(dir, outputDir)
 
 		return nil
@@ -182,7 +182,7 @@ func MarshalIndent(v interface{}, prefix string, indent string) ([]byte, error) 
 	return b, nil
 }
 
-func dump(api *slack.Client, dir string, rooms []string, token string) {
+func dump(api *slack.Client, dir string, rooms []string) {
 	channels := fetchChannel(api)
 	users, err := api.GetUsers()
 	check(err)
@@ -218,28 +218,21 @@ func dump(api *slack.Client, dir string, rooms []string, token string) {
 
 		if kind != "" && ok {
 			fmt.Println(name)
-			dumpChannel(api, c.ID, name, kind, dir, token)
+			dumpChannel(api, c.ID, name, kind, dir)
 		}
 	}
 
-	dumpCJson(public_channels, "channels.json", dir)
-	dumpCJson(direct_channels, "dms.json", dir)
-	dumpCJson(private_channels, "groups.json", dir)
-	dumpCJson(group_channels, "mpims.json", dir)
-	dumpUJson(users, "users.json", dir)
+	dumpJson(public_channels, "channels.json", dir)
+	dumpJson(direct_channels, "dms.json", dir)
+	dumpJson(private_channels, "groups.json", dir)
+	dumpJson(group_channels, "mpims.json", dir)
+	dumpJson(users, "users.json", dir)
 }
 
-func dumpCJson(channels []slack.Channel, name string, dir string) {
-	data_channels, err := MarshalIndent(channels, "", "    ")
+func dumpJson(v interface{}, name string, dir string) {
+	v_, err := MarshalIndent(v, "", "    ")
 	check(err)
-	err = ioutil.WriteFile(path.Join(dir, name), data_channels, 0644)
-	check(err)
-}
-
-func dumpUJson(users []slack.User, name string, dir string) {
-	data_users, err := MarshalIndent(users, "", "    ")
-	check(err)
-	err = ioutil.WriteFile(path.Join(dir, name), data_users, 0644)
+	err = ioutil.WriteFile(path.Join(dir, name), v_, 0644)
 	check(err)
 }
 
@@ -272,7 +265,7 @@ func fetchChannel(api *slack.Client) []slack.Channel {
 	return channels
 }
 
-func dumpChannel(api *slack.Client, id string, name string, kind string, dir string, token string) {
+func dumpChannel(api *slack.Client, id string, name string, kind string, dir string) {
 	messages := fetchHistory(api, id)
 
 	if len(messages) == 0 {
@@ -286,11 +279,7 @@ func dumpChannel(api *slack.Client, id string, name string, kind string, dir str
 		ts := parseTimestamp(message.Timestamp)
 		filename := fmt.Sprintf("%d-%02d-%02d.json", ts.Year(), ts.Month(), ts.Day())
 		if message.Files != nil {
-			for i, _ := range message.Files {
-				message.Files[i].IsPublic = true
-				message.Files[i].URLPrivate += "?t=" + token
-				message.Files[i].URLPrivateDownload += "?t=" + token
-			}
+			message.Upload = true
 		}
 
 		if currentFilename != filename {
