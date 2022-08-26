@@ -43,6 +43,7 @@ AUTHORS:
    Sunyong Lim <dicebattle@gmail.com>
    Yoshihiro Misawa <myoshi321go@gmail.com>
    takameron <tech@takameron.info>
+   Toru Nakashika <nakashika@uec.ac.jp>
 
 COMMANDS:
    help, h  Shows a list of commands or help for one command
@@ -65,4 +66,19 @@ $ slack-dump -t=YOURSLACKAPITOKENISHERE
 
 ```
 $ slack-dump -t=YOURSLACKAPITOKENISHERE channel-name-here privategroup-name-here another-privategroup-name-here
+```
+
+### Convert to Mattermost format
+1. Do `slack-dump` to obtain `.zip` file.
+2. Make sure that the zip file contains desired channel logs in the top directory. Otherwise, move the channel directories on top and zip them.
+3. Use `slack-advanced-exporter` to contain e-mail addresses and file attachments.
+```
+$ slack-advanced-exporter --input-archive slackdump-XXXXXXXXXXXXX.zip --output-archive export-with-emails.zip fetch-emails --api-token YOURSLACKAPITOKENISHERE
+$ slack-advanced-exporter --input-archive export-with-emails.zip --output-archive export-with-attachments.zip fetch-attachments --api-token YOURSLACKAPITOKENISHERE
+```
+4. Convert the format using `mmetl`.
+```
+$ mmetl transform slack --team team-name-here --file export-with-attachments.zip --output mattermost_import.jsonl
+$ mkdir data
+$ mv bulk-export-attachments data
 ```
