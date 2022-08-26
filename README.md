@@ -51,6 +51,7 @@ COMMANDS:
 GLOBAL OPTIONS:
    --token value, -t value   a Slack API token: (see: https://api.slack.com/apis) [$SLACK_API_TOKEN]
    --output value, -o value  Output directory path. Default: current directory path [$]
+   --mattermost, -m          Enables Mattermost format. (default: false)
    --help, -h                show help (default: false)
    --version, -v             print the version (default: false)
 
@@ -68,15 +69,17 @@ $ slack-dump -t=YOURSLACKAPITOKENISHERE
 $ slack-dump -t=YOURSLACKAPITOKENISHERE channel-name-here privategroup-name-here another-privategroup-name-here
 ```
 
-### Convert to Mattermost format
-1. Do `slack-dump` to obtain `.zip` file.
-2. Make sure that the zip file contains desired channel logs in the top directory. Otherwise, move the channel directories on top and zip them.
-3. Use `slack-advanced-exporter` to contain e-mail addresses and file attachments.
+### Export All Channels and DMs for Mattermost format
+1. Execute `slack-dump` with `-m` option
+```
+$ slack-dump -m -t=YOURSLACKAPITOKENISHERE
+```
+2. Use `slack-advanced-exporter` to contain e-mail addresses and file attachments
 ```
 $ slack-advanced-exporter --input-archive slackdump-XXXXXXXXXXXXX.zip --output-archive export-with-emails.zip fetch-emails --api-token YOURSLACKAPITOKENISHERE
 $ slack-advanced-exporter --input-archive export-with-emails.zip --output-archive export-with-attachments.zip fetch-attachments --api-token YOURSLACKAPITOKENISHERE
 ```
-4. Convert the format using `mmetl`.
+3. Convert the format using `mmetl`
 ```
 $ mmetl transform slack --team team-name-here --file export-with-attachments.zip --output mattermost_import.jsonl
 $ mkdir data

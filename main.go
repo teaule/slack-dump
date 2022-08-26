@@ -46,6 +46,12 @@ func main() {
 			Usage:   "Output directory path. Default: current directory path",
 			EnvVars: []string{""},
 		},
+		&cli.BoolFlag{
+			Name:    "mattermost",
+			Aliases: []string{"m"},
+			Value:   false,
+			Usage:   "Enables Mattermost format.",
+		},
 	}
 	app.Authors = []*cli.Author{
 		{
@@ -86,6 +92,8 @@ func main() {
 			outputDir = pwd
 		}
 
+		matterFlag := c.Bool("mattermost")
+
 		// create directory if outputDir does not exists
 		if _, err := os.Stat(outputDir); os.IsNotExist(err) {
 			os.MkdirAll(outputDir, 0755)
@@ -103,7 +111,7 @@ func main() {
 		dir, err := ioutil.TempDir("", "slack-dump")
 		check(err)
 
-		dump(api, res, dir, rooms)
+		dump(api, res, dir, rooms, matterFlag)
 		archive(dir, outputDir)
 
 		return nil
@@ -183,7 +191,7 @@ func MarshalIndent(v interface{}, prefix string, indent string) ([]byte, error) 
 	return b, nil
 }
 
-func dump(api *slack.Client, res *slack.AuthTestResponse, dir string, rooms []string) {
+func dump(api *slack.Client, res *slack.AuthTestResponse, dir string, rooms []string, matterFlag bool) {
 	channels := fetchChannel(api)
 	users, err := api.GetUsers()
 	check(err)
@@ -232,7 +240,7 @@ func dump(api *slack.Client, res *slack.AuthTestResponse, dir string, rooms []st
 
 		if kind != "" && ok {
 			fmt.Println(name)
-			dumpChannel(api, c.ID, name, kind, dir)
+			dumpChannel(api, c.ID, name, kind, dir, matterFlag)
 		}
 	}
 
@@ -279,20 +287,25 @@ func fetchChannel(api *slack.Client) []slack.Channel {
 	return channels
 }
 
-func dumpChannel(api *slack.Client, id string, name string, kind string, dir string) {
+func dumpChannel(api *slack.Client, id string, name string, kind string, dir string, matterFlag bool) {
 	messages := fetchHistory(api, id)
+	channelPath := ""
 
 	if len(messages) == 0 {
 		return
 	}
 
 	currentFilename := ""
-	channelPath := path.Join(kind, name)
+	if matterFlag {
+		channelPath = name
+	} else {
+		channelPath = path.Join(kind, name)
+	}
 	var currentMessages []slack.Message
 	for _, message := range messages {
 		ts := parseTimestamp(message.Timestamp)
 		filename := fmt.Sprintf("%d-%02d-%02d.json", ts.Year(), ts.Month(), ts.Day())
-		if message.Files != nil {
+		if (message.Files != nil) && matterFlag {
 			message.Upload = true
 		}
 
