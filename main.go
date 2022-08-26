@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -92,7 +93,7 @@ func main() {
 
 		rooms := c.Args().Slice()
 		api := slack.New(token)
-		_, err := api.AuthTest()
+		res, err := api.AuthTest()
 		if err != nil {
 			fmt.Println("ERROR: the token you used is not valid...")
 			os.Exit(2)
@@ -102,7 +103,7 @@ func main() {
 		dir, err := ioutil.TempDir("", "slack-dump")
 		check(err)
 
-		dump(api, dir, rooms)
+		dump(api, res, dir, rooms)
 		archive(dir, outputDir)
 
 		return nil
@@ -182,27 +183,40 @@ func MarshalIndent(v interface{}, prefix string, indent string) ([]byte, error) 
 	return b, nil
 }
 
-func dump(api *slack.Client, dir string, rooms []string) {
+func dump(api *slack.Client, res *slack.AuthTestResponse, dir string, rooms []string) {
 	channels := fetchChannel(api)
 	users, err := api.GetUsers()
 	check(err)
 	var public_channels, direct_channels, private_channels, group_channels []slack.Channel
+	r_mpdm := regexp.MustCompile(`^mpdm-(.+)-\d$`)
 
 	for _, c := range channels {
 		kind := ""
 		name := ""
+		members := []string{}
 		if c.IsIM {
 			kind = "direct_message"
 			for _, usr := range users {
 				if c.User == usr.ID {
 					name = usr.Name
+					members = []string{res.UserID, usr.ID}
 				}
 			}
 			c.Name = name
+			c.Members = members
 			direct_channels = append(direct_channels, c)
 		} else if c.IsMpIM {
 			kind = "direct_message"
 			name = c.Name
+			members = strings.Split(r_mpdm.ReplaceAllString(c.Name, "$1"), "--")
+			for i, member := range members {
+				for _, usr := range users {
+					if member == usr.Name {
+						members[i] = usr.ID
+					}
+				}
+			}
+			c.Members = members
 			group_channels = append(group_channels, c)
 		} else if c.IsChannel && !c.IsGroup && !c.IsPrivate {
 			kind = "channel"
