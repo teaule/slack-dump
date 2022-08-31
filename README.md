@@ -19,8 +19,8 @@ Generate an export of Channel, Private Group and / or Direct Message history and
 * mpim:read
 * mpim:history
 * users:read
-* users:read.email
-* files:read
+* users:read.email (used for `slack-advanced-exporter`)
+* files:read (used for `mmetl`)
 
 7. Go to "OAuth Tokens for Your Workspace" and click "Install to Workspace"
 8. Accept
