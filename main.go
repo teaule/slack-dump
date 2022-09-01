@@ -50,7 +50,7 @@ func main() {
 			Name:    "mattermost",
 			Aliases: []string{"m"},
 			Value:   false,
-			Usage:   "Enables Mattermost format.",
+			Usage:   "Enables Mattermost format",
 		},
 	}
 	app.Authors = []*cli.Author{
@@ -324,6 +324,8 @@ func fetchHistory(api *slack.Client, ID string) []slack.Message {
 	historyParams := slack.GetConversationHistoryParameters{}
 	historyParams.ChannelID = ID
 	historyParams.Limit = 1000
+	replyParams := slack.GetConversationRepliesParameters{}
+	replyParams.ChannelID = ID
 
 	// Fetch History
 	history, err := api.GetConversationHistory(&historyParams)
@@ -331,6 +333,22 @@ func fetchHistory(api *slack.Client, ID string) []slack.Message {
 	messages := history.Messages
 	if len(messages) > 0 {
 		for {
+			replies := []slack.Reply{}
+			for i, message := range messages {
+				if message.ReplyCount > 0 {
+					replyParams.Timestamp = message.ThreadTimestamp
+					replyMessages, _, _, err := api.GetConversationReplies(&replyParams)
+					check(err)
+					replies = make([]slack.Reply, message.ReplyCount)
+					for j, reply := range replies {
+						reply.User = replyMessages[j+1].User
+						reply.Timestamp = replyMessages[j+1].Timestamp
+						replies[j] = reply
+					}
+					messages[i].Replies = replies
+					messages = append(messages, replyMessages[1:]...)
+				}
+			}
 			if !history.HasMore {
 				break
 			}
@@ -346,6 +364,7 @@ func fetchHistory(api *slack.Client, ID string) []slack.Message {
 		}
 	}
 
+	sortMessages(messages)
 	return messages
 }
 
@@ -391,4 +410,18 @@ func hasArrayItem(arr []string, str string) bool {
 		}
 	}
 	return false
+}
+
+func sortMessages(messages []slack.Message) []slack.Message {
+	N := len(messages)
+	for i := 0; i < N-1; i++ {
+		for j := N - 1; j > i; j-- {
+			if messages[j-1].Timestamp > messages[j].Timestamp {
+				tmp := messages[j-1]
+				messages[j-1] = messages[j]
+				messages[j] = tmp
+			}
+		}
+	}
+	return messages
 }

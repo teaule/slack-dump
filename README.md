@@ -1,5 +1,5 @@
 # slack-dump
-Generate an export of Channel, Private Group and / or Direct Message history and export it as a ZIP file compatible with Slack's import tool.
+Generate an export of Channel, Private Group and / or Direct Message history and export it as a ZIP file compatible with Slack and Mattermost's import tools.
 
 ## Token
 
@@ -53,7 +53,7 @@ COMMANDS:
 GLOBAL OPTIONS:
    --token value, -t value   a Slack API token: (see: https://api.slack.com/apis) [$SLACK_API_TOKEN]
    --output value, -o value  Output directory path. Default: current directory path [$]
-   --mattermost, -m          Enables Mattermost format. (default: false)
+   --mattermost, -m          Enables Mattermost format (default: false)
    --help, -h                show help (default: false)
    --version, -v             print the version (default: false)
 
